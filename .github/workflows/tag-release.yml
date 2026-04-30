@@ -1,0 +1,130 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Tag Release
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+jobs:
+
+#  test:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v6
+#
+#      - name: Set up Go
+#        uses: actions/setup-go@v4
+#        with:
+#          go-version-file: 'go.mod'
+#
+#      - name: Build
+#        run: go build -v ./...
+#
+#      - name: Test
+#        run: go test -v ./...
+
+  ios:
+    runs-on: macos-latest
+#    needs: [ 'test' ]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Install Go Mobile
+        run: make install-go-mobile
+
+      - name: Build
+        run: make ios
+
+      - name: Rename artifact with tag version
+        run: |
+          GITHUB_TAG=${GITHUB_TAG} # Extract the version from the tag
+          mv output/FalconAlgoSDK.xcframework output/falcon-signatures-mobile-sdk-${GITHUB_TAG}.xcframework
+          echo "Renamed artifact to falcon-signatures-mobile-sdk-${GITHUB_TAG}.xcframework"
+        env:
+          GITHUB_TAG: ${{ github.ref_name }}
+
+      - name: Archive Build Output
+        uses: actions/upload-artifact@v7
+        with:
+          name: falcon-signatures-mobile-sdk-${{ github.ref_name }}.xcframework
+          path: output/falcon-signatures-mobile-sdk-${{ github.ref_name }}.xcframework
+
+  android:
+    runs-on: macos-latest
+#    needs: ['test']
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download and Extract Android NDK r20b
+        run: |
+          wget https://dl.google.com/android/repository/android-ndk-r20b-darwin-x86_64.zip
+          unzip android-ndk-r20b-darwin-x86_64.zip -d $HOME
+
+      - name: Set environment variables
+        run: |
+          echo "ANDROID_NDK_HOME=$HOME/android-ndk-r20b" >> $GITHUB_ENV
+          echo "PATH=$HOME/android-ndk-r20b:$PATH" >> $GITHUB_ENV
+
+      - name: Verify NDK installation using Rosetta
+        run: arch -x86_64 $ANDROID_NDK_HOME/ndk-build --version
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Install Go Mobile
+        run: make install-go-mobile
+
+      - name: Build
+        run: make android
+
+      - name: Rename artifact with tag version
+        run: |
+          GITHUB_TAG=${GITHUB_TAG} # Extract the version from the tag
+          cp output/FalconAlgoSDK.aar output/falcon-signatures-mobile-sdk-${GITHUB_TAG}.aar
+          echo "Renamed AAR to falcon-signatures-mobile-sdk-${GITHUB_TAG}.aar"
+        env:
+          GITHUB_TAG: ${{ github.ref_name }}
+
+      - name: Archive Build Output
+        uses: actions/upload-artifact@v7
+        with:
+          name: falcon-signatures-mobile-sdk-${{ github.ref_name }}.aar
+          path: output/falcon-signatures-mobile-sdk-${{ github.ref_name }}.aar
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      - name: Set up Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Publish to Local Bundle Repository
+        env:
+          GITHUB_TAG: ${{ github.ref_name }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          export VERSION_TAG=${GITHUB_TAG#v}  # Remove the leading 'v'
+          ./gradlew :falcon-android-sdk:clean :falcon-android-sdk:publishAlgoSDKReleasePublicationToLocalRepository
+
+      - name: Upload to Maven Central
+        env:
+          GITHUB_TAG: ${{ github.ref_name }}
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          GPG_PRIVATE_KEY: ${{ secrets.RSA_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.RSA_GPG_PASSPHRASE }}
+        run: |
+          export VERSION_TAG=${GITHUB_TAG#v}  # Remove the leading 'v'
+          ./gradlew :falcon-android-sdk:publishToMavenCentralPortal
