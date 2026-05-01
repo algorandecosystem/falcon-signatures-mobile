@@ -89,14 +89,14 @@ fun MavenPublication.setupPom(libName: String) {
     pom {
         packaging = "aar"
         this.name.set(libName)
-        this.description.set("$libName: Android Library for AlgoKit Demo Wallet")
-        this.url.set("https://github.com/michaeltchuang/algorand-devrel-algorand-go-mobile-sdk")
-        this.inceptionYear.set("2025")
+        this.description.set("$libName: Falcon Signatures Mobile SDK")
+        this.url.set("https://github.com/algorandecosystem/falcon-signatures-mobile")
+        this.inceptionYear.set("2026")
 
         licenses {
             license {
-                this.name.set("The Apache License, Version 2.0")
-                this.url.set("https://github.com/michaeltchuang/algorand-devrel-algorand-go-mobile-sdk/blob/main/LICENSE")
+                this.name.set("GNU General Public License v3.0")
+                this.url.set("https://github.com/algorandecosystem/falcon-signatures-mobile/blob/main/LICENSE")
             }
         }
 
@@ -109,9 +109,9 @@ fun MavenPublication.setupPom(libName: String) {
         }
 
         scm {
-            this.connection.set("scm:git:git://github.com/michaeltchuang/algorand-devrel-algorand-go-mobile-sdk.git")
-            this.developerConnection.set("scm:git:ssh://git@github.com/michaeltchuang/algorand-devrel-algorand-go-mobile-sdk.git")
-            this.url.set("https://github.com/michaeltchuang/algorand-devrel-algorand-go-mobile-sdk")
+            this.connection.set("scm:git:git://github.com/algorandecosystem/falcon-signatures-mobile.git")
+            this.developerConnection.set("scm:git:ssh://git@github.com/algorandecosystem/falcon-signatures-mobile.git")
+            this.url.set("https://github.com/algorandecosystem/falcon-signatures-mobile")
         }
     }
 }
