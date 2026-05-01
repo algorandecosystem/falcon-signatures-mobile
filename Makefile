@@ -17,7 +17,7 @@ install-go-mobile:
 
 android:
 	mkdir -p output
-	gomobile bind -target=android -androidapi=21 -o=output/FalconAlgoSDK.aar -javapkg=io.github.algorandecosystem github.com/algorand/go-mobile-algorand-sdk/v2/sdk
+	CGO_LDFLAGS="-Wl,-z,max-page-size=16384" gomobile bind -target=android -androidapi=21 -o=output/FalconAlgoSDK.aar -javapkg=io.github.algorandecosystem github.com/algorand/go-mobile-algorand-sdk/v2/sdk
 
 ios:
 	mkdir -p output
