@@ -1,0 +1,135 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: iOS Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to create (example: v0.0.8)"
+        required: true
+        type: string
+      target_branch:
+        description: "Branch to commit updated Package.swift to"
+        required: true
+        default: "main"
+        type: string
+
+jobs:
+  release-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_ID }}
+          private-key: ${{ secrets.BOT_SK }}
+
+      - name: Checkout target branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+
+      - name: Install Go Mobile
+        run: make install-go-mobile
+
+      - name: Validate release tag
+        run: |
+          if [[ ! "${{ inputs.release_tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release_tag must look like vX.Y.Z"
+            exit 1
+          fi
+
+      - name: Build iOS framework
+        run: make ios
+
+      - name: Build SPM assets and update root Package.swift
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          XCFRAMEWORK_DIR="output/falcon-signatures-mobile-sdk-${RELEASE_TAG}.xcframework"
+          ZIP_PATH="output/falcon-signatures-mobile-sdk-${RELEASE_TAG}.xcframework.zip"
+          PACKAGE_PATH="Package.swift"
+
+          mv output/FalconAlgoSDK.xcframework "${XCFRAMEWORK_DIR}"
+          ditto -c -k --sequesterRsrc --keepParent "${XCFRAMEWORK_DIR}" "${ZIP_PATH}"
+
+          CHECKSUM=$(swift package compute-checksum "${ZIP_PATH}")
+
+          cat > "${PACKAGE_PATH}" <<EOF
+          // swift-tools-version:5.9
+          import PackageDescription
+
+          let package = Package(
+              name: "FalconMobileSDK",
+              platforms: [.iOS(.v13)],
+              products: [
+                  .library(name: "FalconMobileSDK", targets: ["FalconMobileSDK"])
+              ],
+              targets: [
+                  .binaryTarget(
+                      name: "FalconMobileSDK",
+                      url: "https://github.com/${REPO}/releases/download/${RELEASE_TAG}/falcon-signatures-mobile-sdk-${RELEASE_TAG}.xcframework.zip",
+                      checksum: "${CHECKSUM}"
+                  )
+              ]
+          )
+          EOF
+
+      - name: Commit and push updated Package.swift
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          APP_ID: ${{ secrets.BOT_ID }}
+        run: |
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+
+          git add Package.swift
+          if git diff --cached --quiet; then
+            echo "No Package.swift changes to commit"
+          else
+            git commit -m "chore(release): update Package.swift for ${RELEASE_TAG}"
+            git push origin "${TARGET_BRANCH}"
+          fi
+
+      - name: Create and push release tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if git rev-parse "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Tag ${RELEASE_TAG} already exists locally"
+          else
+            git tag "${RELEASE_TAG}"
+          fi
+          git push origin "${RELEASE_TAG}"
+
+      - name: Upload iOS release assets
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          tag_name: ${{ inputs.release_tag }}
+          files: |
+            output/falcon-signatures-mobile-sdk-${{ inputs.release_tag }}.xcframework.zip
+            Package.swift
+
+      - name: Archive workflow artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: falcon-signatures-mobile-sdk-${{ inputs.release_tag }}-spm
+          path: |
+            output/falcon-signatures-mobile-sdk-${{ inputs.release_tag }}.xcframework
+            output/falcon-signatures-mobile-sdk-${{ inputs.release_tag }}.xcframework.zip
+            Package.swift
