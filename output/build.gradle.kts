@@ -102,9 +102,9 @@ fun MavenPublication.setupPom(libName: String) {
 
         developers {
             developer {
-                this.id.set("michaeltchuang")
-                this.name.set("Michael T Chuang")
-                this.email.set("hello@michaeltchuang.com")
+                this.id.set("algorandecosystem")
+                this.name.set("Algorand Ecosystem")
+                this.email.set("contact@algorand.eco")
             }
         }
 
