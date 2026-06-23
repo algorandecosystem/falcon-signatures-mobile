@@ -180,14 +180,19 @@ func SignFalconBundle(
 
 // --- Helpers ---
 
-func createDummyTransaction(template types.Transaction, index int) types.Transaction {
+func GetFalconLsigAddress() string {
 	lsig := crypto.LogicSigAccount{Lsig: types.LogicSig{Logic: dummyLsigCompiled}}
 	addr, _ := lsig.Address()
+	return addr.String()
+}
+
+func createDummyTransaction(template types.Transaction, index int) types.Transaction {
+	falconLsigAddress, _ := types.DecodeAddress(GetFalconLsigAddress())
 
 	return types.Transaction{
 		Type: types.PaymentTx,
 		Header: types.Header{
-			Sender:      types.Address(addr),
+			Sender:      falconLsigAddress,
 			Fee:         0,
 			FirstValid:  template.FirstValid,
 			LastValid:   template.LastValid,
@@ -196,7 +201,7 @@ func createDummyTransaction(template types.Transaction, index int) types.Transac
 			Note:        []byte{byte(index)},
 		},
 		PaymentTxnFields: types.PaymentTxnFields{
-			Receiver: types.Address(addr),
+			Receiver: falconLsigAddress,
 			Amount:   0,
 		},
 	}
