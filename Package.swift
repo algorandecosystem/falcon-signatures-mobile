@@ -10,8 +10,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "FalconMobileSDK",
-            url: "https://github.com/algorandecosystem/falcon-signatures-mobile/releases/download/v0.0.11/falcon-signatures-mobile-sdk-v0.0.11.xcframework.zip",
-            checksum: "86b0e2a0ffddac9c0f80f7e9ff6b08e6abb7bf8ef9c552ee8f1657609e919890"
+            url: "https://github.com/algorandecosystem/falcon-signatures-mobile/releases/download/v0.0.12/falcon-signatures-mobile-sdk-v0.0.12.xcframework.zip",
+            checksum: "a1dafc1d333d6542616d6e50cfe56246f6f9627ac77096f415b1ed9aef0eb0a9"
         )
     ]
 )
