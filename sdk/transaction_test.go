@@ -1,11 +1,19 @@
 package sdk
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/stretchr/testify/require"
 )
+
+func mustDecodeB64(t *testing.T, value string) []byte {
+	t.Helper()
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	require.NoError(t, err)
+	return decoded
+}
 
 func TestMakePaymentTxn(t *testing.T) {
 	t.Parallel()

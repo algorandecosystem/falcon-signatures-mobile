@@ -1,8 +1,8 @@
 package sdk
 
 import (
-	_ "embed"
 	"crypto/sha512"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,67 +17,58 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-type AlgorandKeyInfo struct {
-	AlgorandAddress string `json:"AlgorandAddress"`
-	PublicKey       []byte `json:"PublicKey"`
-	PrivateKey      []byte `json:"PrivateKey"`
-}
-
 const (
-	kdfIterations         = 100000
-	kdfKeyLen             = 48
-	kdfSaltStr            = "falcon-cli-seed-v1"
-	expectedMnemonicWords = 24
-	dummiesPerRealTxn     = 3
+	falconLsigMnemonicWords = 24
+	dummiesPerRealTxn       = 3
 )
 
 //go:embed teal/dummyLsig.teal.tok
 var dummyLsigCompiled []byte
 
-// --- Key Management ---
-
-func DeriveFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo, error) {
+// DeriveFalconLsigFromMnemonic derives a legacy Falcon LogicSig account from a 24-word BIP-39 mnemonic.
+func DeriveFalconLsigFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo, error) {
 	words := strings.Fields(strings.TrimSpace(mnemonicStr))
-	if len(words) != expectedMnemonicWords {
-		return nil, fmt.Errorf("mnemonic requires exactly %d words", expectedMnemonicWords)
+	if len(words) != falconLsigMnemonicWords {
+		return nil, fmt.Errorf("Falcon LogicSig mnemonic requires exactly %d words", falconLsigMnemonicWords)
 	}
-	seedArray, err := mnemonic.SeedFromMnemonic(words, passphrase)
+	seed, err := mnemonic.SeedFromMnemonic(words, passphrase)
 	if err != nil {
 		return nil, err
 	}
-	return keysFromSeed(seedArray[:])
+	return keysFromFalconLsigSeed(seed[:])
 }
 
-func DeriveFromSeedPhrase(phrase string) (*AlgorandKeyInfo, error) {
-	seed := pbkdf2.Key([]byte(strings.TrimSpace(phrase)), []byte(kdfSaltStr), kdfIterations, kdfKeyLen, sha512.New)
-	return keysFromSeed(seed)
-}
-
-func keysFromSeed(seed []byte) (*AlgorandKeyInfo, error) {
-	kp, err := falcongo.GenerateKeyPair(seed)
+func keysFromFalconLsigSeed(seed []byte) (*AlgorandKeyInfo, error) {
+	keyPair, err := falcongo.GenerateKeyPair(seed)
 	if err != nil {
 		return nil, err
 	}
-	address, err := algorand.GetAddressFromPublicKey(kp.PublicKey)
+	address, err := algorand.GetAddressFromPublicKey(keyPair.PublicKey)
 	if err != nil {
 		return nil, err
 	}
 	return &AlgorandKeyInfo{
 		AlgorandAddress: string(address),
-		PublicKey:       kp.PublicKey[:],
-		PrivateKey:      kp.PrivateKey[:],
+		PublicKey:       keyPair.PublicKey[:],
+		PrivateKey:      keyPair.PrivateKey[:],
 	}, nil
+}
+
+// DeriveFalconLsigFromSeedPhrase deterministically derives a legacy Falcon LogicSig account.
+func DeriveFalconLsigFromSeedPhrase(phrase string) (*AlgorandKeyInfo, error) {
+	seed := pbkdf2.Key([]byte(strings.TrimSpace(phrase)), []byte(kdfSaltStr), kdfIterations, kdfKeyLen, sha512.New)
+	return keysFromFalconLsigSeed(seed)
 }
 
 // --- Signing Logic ---
 
-// SignFalconBundle handles multiple transactions (raw bytes).
-// Returns a comma-separated string of signed Base64 transactions.
+// SignFalconLsigBundle is the legacy Falcon LogicSig transaction signer.
+// It returns a comma-separated string of signed Base64 transactions.
 //
 // TWO MODES:
 // 1. No group ID (single txn): Add dummies, create group, sign
 // 2. Has group ID (from dApp): Just sign as-is, don't modify!
-func SignFalconBundle(
+func SignFalconLsigBundle(
 	unsignedTxns *BytesArray,
 	pubKeyBytes []byte,
 	privKeyBytes []byte,
@@ -114,12 +105,12 @@ func SignFalconBundle(
 	// If HAS group ID: This is from dApp - DON'T MODIFY, just sign!
 	if len(txns) > 0 && txns[0].Group == (types.Digest{}) {
 		// MODE 1: No group ID - add dummies for budget
-		fmt.Println("SignFalconBundle: No group ID detected - adding dummies")
+		fmt.Println("SignFalconLsigBundle: No group ID detected - adding dummies")
 
-        actualDummyCount := len(txns) * dummiesPerRealTxn  // 3 dummies per txn
+		actualDummyCount := len(txns) * dummiesPerRealTxn // 3 dummies per txn
 
-        fmt.Printf("SignFalconBundle: Adding %d dummies for %d real txns (total: %d)\n",
-            actualDummyCount, len(txns), len(txns)+actualDummyCount)
+		fmt.Printf("SignFalconLsigBundle: Adding %d dummies for %d real txns (total: %d)\n",
+			actualDummyCount, len(txns), len(txns)+actualDummyCount)
 
 		if actualDummyCount > 0 {
 			for i := 0; i < actualDummyCount; i++ {
@@ -140,7 +131,7 @@ func SignFalconBundle(
 		}
 	} else {
 		// MODE 2: Has group ID - DON'T MODIFY ANYTHING!
-		fmt.Println("SignFalconBundle: Group ID detected - signing as-is")
+		fmt.Println("SignFalconLsigBundle: Group ID detected - signing as-is")
 		// Don't add dummies, don't modify fees, don't recompute group!
 	}
 
@@ -180,14 +171,14 @@ func SignFalconBundle(
 
 // --- Helpers ---
 
-func GetFalconLsigAddress() string {
+func GetDummyLsigAddress() string {
 	lsig := crypto.LogicSigAccount{Lsig: types.LogicSig{Logic: dummyLsigCompiled}}
 	addr, _ := lsig.Address()
 	return addr.String()
 }
 
 func createDummyTransaction(template types.Transaction, index int) types.Transaction {
-	falconLsigAddress, _ := types.DecodeAddress(GetFalconLsigAddress())
+	falconLsigAddress, _ := types.DecodeAddress(GetDummyLsigAddress())
 
 	return types.Transaction{
 		Type: types.PaymentTx,
@@ -207,14 +198,14 @@ func createDummyTransaction(template types.Transaction, index int) types.Transac
 	}
 }
 
-func RawSign(messageBytes []byte, publicKeyBytes []byte, privateKeyBytes []byte) ([]byte, error) {
+func RawSignFalconLsig(messageBytes []byte, publicKeyBytes []byte, privateKeyBytes []byte) ([]byte, error) {
 	keyPair := falcongo.KeyPair{}
 	copy(keyPair.PublicKey[:], publicKeyBytes)
 	copy(keyPair.PrivateKey[:], privateKeyBytes)
 	return keyPair.Sign(messageBytes)
 }
 
-func (ki *AlgorandKeyInfo) ToJSON() (string, error) {
+func (ki *AlgorandKeyInfo) ToLsigJSON() (string, error) {
 	data, err := json.MarshalIndent(ki, "", "  ")
 	return string(data), err
 }
