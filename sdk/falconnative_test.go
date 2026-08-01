@@ -6,9 +6,8 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
-	algorandMnemonic "github.com/algorand/go-algorand-sdk/v2/mnemonic"
+	"github.com/algorand/go-algorand-sdk/v2/mnemonic"
 	"github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/algorandfoundation/falcon-signatures/falcongo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +15,7 @@ import (
 const sampleAlgorandMnemonic = "carbon another pair valley ride lumber exhibit chunk forget select nerve topic refuse ball bomb draw chunk toward motor detect process smile envelope abstract rule"
 
 func TestMnemonicFromEntropy(t *testing.T) {
-	masterKey, err := algorandMnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
+	masterKey, err := mnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
 	require.NoError(t, err)
 
 	mnemonic, err := MnemonicFromEntropy(masterKey[:])
@@ -31,14 +30,15 @@ func TestFalconNativeAccountDerivation(t *testing.T) {
 	keyInfo, err := DeriveFromMnemonic(sampleAlgorandMnemonic, "")
 	require.NoError(t, err)
 
-	var expectedKeyPair falcongo.KeyPair
-	assert.Len(t, keyInfo.PublicKey, len(expectedKeyPair.PublicKey), "Falcon-1024 public key length")
-	assert.Len(t, keyInfo.PrivateKey, len(expectedKeyPair.PrivateKey), "Falcon-1024 private key length")
+	var expectedAccount crypto.Falcon1024Account
+	assert.Len(t, keyInfo.PublicKey, len(expectedAccount.PublicKey), "Falcon-1024 public key length")
+	assert.Len(t, keyInfo.PrivateKey, len(expectedAccount.PrivateKey), "Falcon-1024 private key length")
 
-	salt, derivedAddress, err := canonicalPQAddress(keyInfo.PublicKey)
+	masterKey, err := mnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
 	require.NoError(t, err)
-	assert.Equal(t, derivedAddress.String(), keyInfo.AlgorandAddress)
-	assert.LessOrEqual(t, uint8(salt), uint8(255))
+	account, err := falconAccountFromEntropy(masterKey[:], "")
+	require.NoError(t, err)
+	assert.Equal(t, account.Address().String(), keyInfo.AlgorandAddress)
 }
 
 func TestSignFalconBundleCreatesNativePQSignature(t *testing.T) {
@@ -56,23 +56,27 @@ func TestSignFalconBundleCreatesNativePQSignature(t *testing.T) {
 	unsignedTxn, err := MakePaymentTxn(keyInfo.AlgorandAddress, keyInfo.AlgorandAddress, &amount, nil, "", params)
 	require.NoError(t, err)
 
+	masterKey, err := mnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
+	require.NoError(t, err)
 	txnList := &BytesArray{}
 	txnList.Append(unsignedTxn)
-	signedBundle, err := SignFalconBundle(txnList, keyInfo.PublicKey, keyInfo.PrivateKey)
+	_, err = SignFalconBundle(txnList, masterKey[:len(masterKey)-1], "")
+	require.Error(t, err)
+
+	signedBundle, err := SignFalconBundle(txnList, masterKey[:], "")
 	require.NoError(t, err)
 
 	encodedNativeTxn, err := base64.StdEncoding.DecodeString(signedBundle)
 	require.NoError(t, err)
 	var nativeTxn types.SignedTxn
 	require.NoError(t, msgpack.Decode(encodedNativeTxn, &nativeTxn))
-	assert.Equal(t, falcon1024Scheme, nativeTxn.PQsig.Scheme)
+	assert.Equal(t, types.PQSchemeFalcon1024, nativeTxn.PQsig.Scheme)
 	assert.Equal(t, keyInfo.PublicKey, nativeTxn.PQsig.PublicKey)
 	assert.Empty(t, nativeTxn.Lsig.Logic)
 	assert.NotEmpty(t, nativeTxn.PQsig.Signature)
 
-	var publicKey falcongo.PublicKey
-	copy(publicKey[:], nativeTxn.PQsig.PublicKey)
-	assert.NoError(t, falcongo.Verify(crypto.TransactionID(nativeTxn.Txn), nativeTxn.PQsig.Signature, publicKey))
+	toBeSigned := append([]byte("TX"), msgpack.Encode(nativeTxn.Txn)...)
+	assert.True(t, crypto.VerifyPQSig(toBeSigned, nativeTxn.PQsig))
 }
 
 func mustDecodeBase64(t *testing.T, s string) []byte {

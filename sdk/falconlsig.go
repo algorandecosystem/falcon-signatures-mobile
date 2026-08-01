@@ -171,14 +171,14 @@ func SignFalconLsigBundle(
 
 // --- Helpers ---
 
-func GetDummyLsigAddress() string {
+func GetFalconLsigAddress() string {
 	lsig := crypto.LogicSigAccount{Lsig: types.LogicSig{Logic: dummyLsigCompiled}}
 	addr, _ := lsig.Address()
 	return addr.String()
 }
 
 func createDummyTransaction(template types.Transaction, index int) types.Transaction {
-	falconLsigAddress, _ := types.DecodeAddress(GetDummyLsigAddress())
+	falconLsigAddress, _ := types.DecodeAddress(GetFalconLsigAddress())
 
 	return types.Transaction{
 		Type: types.PaymentTx,
