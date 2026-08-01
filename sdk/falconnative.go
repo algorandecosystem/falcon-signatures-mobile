@@ -31,6 +31,16 @@ const (
 
 var falcon1024Scheme = types.PQScheme{'f', '1'}
 
+// MnemonicFromEntropy converts master-derivation-key entropy to its 25-word Algorand mnemonic.
+func MnemonicFromEntropy(entropy []byte) (string, error) {
+	var masterKey types.MasterDerivationKey
+	if len(entropy) != len(masterKey) {
+		return "", fmt.Errorf("invalid master derivation key length: got %d, want %d", len(entropy), len(masterKey))
+	}
+	copy(masterKey[:], entropy)
+	return algorandMnemonic.FromMasterDerivationKey(masterKey)
+}
+
 // DeriveFromMnemonic derives a native Falcon-1024 PQ account from a 25-word mnemonic.
 func DeriveFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo, error) {
 	words := strings.Fields(strings.TrimSpace(mnemonicStr))

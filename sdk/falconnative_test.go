@@ -6,6 +6,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/v2/crypto"
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
+	algorandMnemonic "github.com/algorand/go-algorand-sdk/v2/mnemonic"
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorandfoundation/falcon-signatures/falcongo"
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,18 @@ import (
 )
 
 const sampleAlgorandMnemonic = "carbon another pair valley ride lumber exhibit chunk forget select nerve topic refuse ball bomb draw chunk toward motor detect process smile envelope abstract rule"
+
+func TestMnemonicFromEntropy(t *testing.T) {
+	masterKey, err := algorandMnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
+	require.NoError(t, err)
+
+	mnemonic, err := MnemonicFromEntropy(masterKey[:])
+	require.NoError(t, err)
+	assert.Equal(t, sampleAlgorandMnemonic, mnemonic)
+
+	_, err = MnemonicFromEntropy(masterKey[:len(masterKey)-1])
+	assert.Error(t, err)
+}
 
 func TestFalconNativeAccountDerivation(t *testing.T) {
 	keyInfo, err := DeriveFromMnemonic(sampleAlgorandMnemonic, "")
