@@ -4,8 +4,8 @@ github.com/algorand/avm-abi v0.2.0 h1:bkjsG+BOEcxUcnGSALLosmltE0JZdg+ZisXKx0UDX2
 github.com/algorand/avm-abi v0.2.0/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
 github.com/algorand/falcon v0.1.0 h1:xl832kfZ7hHG6B4p90DQynjfKFGbIUgUOnsRiMZXfAo=
 github.com/algorand/falcon v0.1.0/go.mod h1:OkQyHlGvS0kLNcIWbC21/uQcnbfwSOQm+wiqWwBG9pQ=
-github.com/algorand/go-algorand-sdk/v2 v2.11.2-0.20260731142457-558132cced4a h1:e2tTJz+SMwJ1glonDzHKl1272LXbqfURu6gQGrEwTBo=
-github.com/algorand/go-algorand-sdk/v2 v2.11.2-0.20260731142457-558132cced4a/go.mod h1:lAGocFyYgbUgjelLomkg7xahC9L5NFhu5keYe8z9chg=
+github.com/algorand/go-algorand-sdk/v2 v2.11.2-0.20260803154032-1140621b04db h1:oF//lVfzhJAwUlxN16oyR5tS1H8HceyIs/unlGpjLXc=
+github.com/algorand/go-algorand-sdk/v2 v2.11.2-0.20260803154032-1140621b04db/go.mod h1:lAGocFyYgbUgjelLomkg7xahC9L5NFhu5keYe8z9chg=
 github.com/algorand/go-codec/codec v1.1.10 h1:zmWYU1cp64jQVTOG8Tw8wa+k0VfwgXIPbnDfiVa+5QA=
 github.com/algorand/go-codec/codec v1.1.10/go.mod h1:YkEx5nmr/zuCeaDYOIhlDg92Lxju8tj2d2NrYqP7g7k=
 github.com/algorandfoundation/falcon-signatures v1.1.2 h1:dEoUBZcdCebqZ5RpmH7arP+zc1T2dZHd+WMqgSotOTI=

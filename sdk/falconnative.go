@@ -48,7 +48,24 @@ func DeriveFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo
 	if err != nil {
 		return nil, fmt.Errorf("invalid Algorand mnemonic: %w", err)
 	}
-	account, err := falconAccountFromEntropy(masterKey[:], passphrase)
+	seed, err := SeedFromEntropy(masterKey[:], passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return keyInfoFromSeed(seed)
+}
+
+// SeedFromEntropy deterministically derives a Falcon-1024 seed from master-key entropy and a passphrase.
+func SeedFromEntropy(entropy []byte, passphrase string) ([]byte, error) {
+	var masterKey types.MasterDerivationKey
+	if len(entropy) != len(masterKey) {
+		return nil, fmt.Errorf("invalid master derivation key length: got %d, want %d", len(entropy), len(masterKey))
+	}
+	return pbkdf2.Key(entropy, []byte("falcon-native-account-v1"+passphrase), kdfIterations, kdfKeyLen, sha512.New), nil
+}
+
+func keyInfoFromSeed(seed []byte) (*AlgorandKeyInfo, error) {
+	account, err := crypto.Falcon1024AccountFromPQSeed(seed)
 	if err != nil {
 		return nil, err
 	}
@@ -59,23 +76,14 @@ func DeriveFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo
 	}, nil
 }
 
-func falconAccountFromEntropy(entropy []byte, passphrase string) (crypto.Falcon1024Account, error) {
-	var masterKey types.MasterDerivationKey
-	if len(entropy) != len(masterKey) {
-		return crypto.Falcon1024Account{}, fmt.Errorf("invalid master derivation key length: got %d, want %d", len(entropy), len(masterKey))
-	}
-	seed := pbkdf2.Key(entropy, []byte("falcon-native-account-v1"+passphrase), kdfIterations, kdfKeyLen, sha512.New)
-	return crypto.Falcon1024AccountFromPQSeed(seed)
-}
-
-// SignFalconBundle signs transactions from a native Falcon-1024 PQ account derived from master-key entropy.
+// SignFalconBundle signs transactions from a native Falcon-1024 PQ account derived from seed.
 // Transactions already signed by another account are preserved unchanged.
-func SignFalconBundle(unsignedTxns *BytesArray, entropy []byte, passphrase string) (string, error) {
+func SignFalconBundle(unsignedTxns *BytesArray, seed []byte) (string, error) {
 	if unsignedTxns == nil || unsignedTxns.Length() == 0 {
 		return "", fmt.Errorf("transaction bundle is empty")
 	}
 
-	account, err := falconAccountFromEntropy(entropy, passphrase)
+	account, err := crypto.Falcon1024AccountFromPQSeed(seed)
 	if err != nil {
 		return "", err
 	}

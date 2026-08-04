@@ -24,6 +24,13 @@ func TestMnemonicFromEntropy(t *testing.T) {
 
 	_, err = MnemonicFromEntropy(masterKey[:len(masterKey)-1])
 	assert.Error(t, err)
+
+	seed, err := SeedFromEntropy(masterKey[:], "test passphrase")
+	require.NoError(t, err)
+	assert.Len(t, seed, kdfKeyLen)
+
+	_, err = SeedFromEntropy(masterKey[:len(masterKey)-1], "test passphrase")
+	assert.Error(t, err)
 }
 
 func TestFalconNativeAccountDerivation(t *testing.T) {
@@ -36,7 +43,9 @@ func TestFalconNativeAccountDerivation(t *testing.T) {
 
 	masterKey, err := mnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
 	require.NoError(t, err)
-	account, err := falconAccountFromEntropy(masterKey[:], "")
+	seed, err := SeedFromEntropy(masterKey[:], "")
+	require.NoError(t, err)
+	account, err := crypto.Falcon1024AccountFromPQSeed(seed)
 	require.NoError(t, err)
 	assert.Equal(t, account.Address().String(), keyInfo.AlgorandAddress)
 }
@@ -58,12 +67,14 @@ func TestSignFalconBundleCreatesNativePQSignature(t *testing.T) {
 
 	masterKey, err := mnemonic.ToMasterDerivationKey(sampleAlgorandMnemonic)
 	require.NoError(t, err)
+	seed, err := SeedFromEntropy(masterKey[:], "")
+	require.NoError(t, err)
 	txnList := &BytesArray{}
 	txnList.Append(unsignedTxn)
-	_, err = SignFalconBundle(txnList, masterKey[:len(masterKey)-1], "")
+	_, err = SignFalconBundle(txnList, seed[:len(seed)-1])
 	require.Error(t, err)
 
-	signedBundle, err := SignFalconBundle(txnList, masterKey[:], "")
+	signedBundle, err := SignFalconBundle(txnList, seed)
 	require.NoError(t, err)
 
 	encodedNativeTxn, err := base64.StdEncoding.DecodeString(signedBundle)
