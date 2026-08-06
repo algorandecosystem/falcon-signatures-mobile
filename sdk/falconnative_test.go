@@ -25,11 +25,26 @@ func TestMnemonicFromEntropy(t *testing.T) {
 	_, err = MnemonicFromEntropy(masterKey[:len(masterKey)-1])
 	assert.Error(t, err)
 
-	seed, err := SeedFromEntropy(masterKey[:], "test passphrase")
+	seed, err := SeedFromEntropy(masterKey[:], "")
 	require.NoError(t, err)
-	assert.Len(t, seed, kdfKeyLen)
+	assert.Len(t, seed, 32)
 
-	_, err = SeedFromEntropy(masterKey[:len(masterKey)-1], "test passphrase")
+	_, err = SeedFromEntropy(masterKey[:], "test passphrase")
+	assert.Error(t, err)
+
+	_, err = SeedFromEntropy(masterKey[:len(masterKey)-1], "")
+	assert.Error(t, err)
+}
+
+func TestSeedFromMnemonicUsesAlgorandSDK(t *testing.T) {
+	seed, err := SeedFromMnemonic(sampleAlgorandMnemonic, "")
+	require.NoError(t, err)
+
+	expectedSeed, err := mnemonic.ToPQSeed(sampleAlgorandMnemonic, types.PQSchemeFalcon1024)
+	require.NoError(t, err)
+	assert.Equal(t, expectedSeed, seed)
+
+	_, err = SeedFromMnemonic(sampleAlgorandMnemonic, "passphrase")
 	assert.Error(t, err)
 }
 

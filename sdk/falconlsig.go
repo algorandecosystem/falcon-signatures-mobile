@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"crypto/sha512"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -14,7 +13,6 @@ import (
 	"github.com/algorandfoundation/falcon-signatures/algorand"
 	"github.com/algorandfoundation/falcon-signatures/falcongo"
 	"github.com/algorandfoundation/falcon-signatures/mnemonic"
-	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
@@ -52,12 +50,6 @@ func keysFromFalconLsigSeed(seed []byte) (*AlgorandKeyInfo, error) {
 		PublicKey:       keyPair.PublicKey[:],
 		PrivateKey:      keyPair.PrivateKey[:],
 	}, nil
-}
-
-// DeriveFalconLsigFromSeedPhrase deterministically derives a legacy Falcon LogicSig account.
-func DeriveFalconLsigFromSeedPhrase(phrase string) (*AlgorandKeyInfo, error) {
-	seed := pbkdf2.Key([]byte(strings.TrimSpace(phrase)), []byte(kdfSaltStr), kdfIterations, kdfKeyLen, sha512.New)
-	return keysFromFalconLsigSeed(seed)
 }
 
 // --- Signing Logic ---

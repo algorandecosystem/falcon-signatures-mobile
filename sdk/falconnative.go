@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/mnemonic"
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/algorandfoundation/falcon-signatures/falcongo"
-	"golang.org/x/crypto/pbkdf2"
 )
 
 type AlgorandKeyInfo struct {
@@ -21,12 +19,7 @@ type AlgorandKeyInfo struct {
 	PrivateKey      []byte `json:"PrivateKey"`
 }
 
-const (
-	kdfIterations         = 100000
-	kdfKeyLen             = 48
-	kdfSaltStr            = "falcon-cli-seed-v1"
-	expectedMnemonicWords = 25
-)
+const expectedMnemonicWords = 25
 
 // MnemonicFromEntropy converts master-derivation-key entropy to its 25-word Algorand mnemonic.
 func MnemonicFromEntropy(entropy []byte) (string, error) {
@@ -38,30 +31,42 @@ func MnemonicFromEntropy(entropy []byte) (string, error) {
 	return mnemonic.FromMasterDerivationKey(masterKey)
 }
 
-// DeriveFromMnemonic derives a native Falcon-1024 PQ account from a 25-word mnemonic.
+// DeriveFromMnemonic derives a native Falcon-1024 PQ account from an Algorand 25-word mnemonic.
 func DeriveFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo, error) {
-	words := strings.Fields(strings.TrimSpace(mnemonicStr))
-	if len(words) != expectedMnemonicWords {
-		return nil, fmt.Errorf("mnemonic requires exactly %d words", expectedMnemonicWords)
-	}
-	masterKey, err := mnemonic.ToMasterDerivationKey(strings.Join(words, " "))
-	if err != nil {
-		return nil, fmt.Errorf("invalid Algorand mnemonic: %w", err)
-	}
-	seed, err := SeedFromEntropy(masterKey[:], passphrase)
+	seed, err := SeedFromMnemonic(mnemonicStr, passphrase)
 	if err != nil {
 		return nil, err
 	}
 	return keyInfoFromSeed(seed)
 }
 
-// SeedFromEntropy deterministically derives a Falcon-1024 seed from master-key entropy and a passphrase.
-func SeedFromEntropy(entropy []byte, passphrase string) ([]byte, error) {
-	var masterKey types.MasterDerivationKey
-	if len(entropy) != len(masterKey) {
-		return nil, fmt.Errorf("invalid master derivation key length: got %d, want %d", len(entropy), len(masterKey))
+// SeedFromMnemonic derives the canonical Falcon-1024 PQ seed from an Algorand 25-word mnemonic.
+// Algorand's PQ mnemonic derivation does not support passphrases.
+func SeedFromMnemonic(mnemonicStr string, passphrase string) ([]byte, error) {
+	if passphrase != "" {
+		return nil, fmt.Errorf("passphrases are not supported for native Falcon-1024 accounts")
 	}
-	return pbkdf2.Key(entropy, []byte("falcon-native-account-v1"+passphrase), kdfIterations, kdfKeyLen, sha512.New), nil
+
+	words := strings.Fields(strings.TrimSpace(mnemonicStr))
+	if len(words) != expectedMnemonicWords {
+		return nil, fmt.Errorf("mnemonic requires exactly %d words", expectedMnemonicWords)
+	}
+
+	seed, err := mnemonic.ToPQSeed(strings.Join(words, " "), types.PQSchemeFalcon1024)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Algorand mnemonic: %w", err)
+	}
+	return seed, nil
+}
+
+// SeedFromEntropy derives the canonical Falcon-1024 PQ seed from master-key entropy.
+// Algorand's PQ mnemonic derivation does not support passphrases.
+func SeedFromEntropy(entropy []byte, passphrase string) ([]byte, error) {
+	mnemonicStr, err := MnemonicFromEntropy(entropy)
+	if err != nil {
+		return nil, err
+	}
+	return SeedFromMnemonic(mnemonicStr, passphrase)
 }
 
 func keyInfoFromSeed(seed []byte) (*AlgorandKeyInfo, error) {
