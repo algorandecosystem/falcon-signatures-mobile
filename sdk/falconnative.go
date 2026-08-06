@@ -31,6 +31,20 @@ func MnemonicFromEntropy(entropy []byte) (string, error) {
 	return mnemonic.FromMasterDerivationKey(masterKey)
 }
 
+// MnemonicToEntropy converts an Algorand 25-word mnemonic to master-derivation-key entropy.
+func MnemonicToEntropy(mnemonicStr string) ([]byte, error) {
+	words := strings.Fields(strings.TrimSpace(mnemonicStr))
+	if len(words) != expectedMnemonicWords {
+		return nil, fmt.Errorf("mnemonic requires exactly %d words", expectedMnemonicWords)
+	}
+
+	entropy, err := mnemonic.ToKey(strings.Join(words, " "))
+	if err != nil {
+		return nil, fmt.Errorf("invalid Algorand mnemonic: %w", err)
+	}
+	return entropy, nil
+}
+
 // DeriveFromMnemonic derives a native Falcon-1024 PQ account from an Algorand 25-word mnemonic.
 func DeriveFromMnemonic(mnemonicStr string, passphrase string) (*AlgorandKeyInfo, error) {
 	seed, err := SeedFromMnemonic(mnemonicStr, passphrase)

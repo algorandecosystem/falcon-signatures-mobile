@@ -22,6 +22,13 @@ func TestMnemonicFromEntropy(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, sampleAlgorandMnemonic, mnemonic)
 
+	entropy, err := MnemonicToEntropy("  " + sampleAlgorandMnemonic + "  ")
+	require.NoError(t, err)
+	assert.Equal(t, masterKey[:], entropy)
+
+	_, err = MnemonicToEntropy("invalid mnemonic")
+	assert.Error(t, err)
+
 	_, err = MnemonicFromEntropy(masterKey[:len(masterKey)-1])
 	assert.Error(t, err)
 
